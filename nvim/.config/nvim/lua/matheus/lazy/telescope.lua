@@ -1,6 +1,7 @@
 return {
     "nvim-telescope/telescope.nvim",
     tag = "0.1.8",
+    lazy = false,
     dependencies = {
         "nvim-lua/plenary.nvim",
         {
@@ -15,26 +16,43 @@ return {
         local telescope = require("telescope")
         local builtin = require("telescope.builtin")
 
+        -- Usa fdfind (nome do binário no Ubuntu/Debian)
+        local fd_bin = vim.fn.executable("fd") == 1 and "fd" or "fdfind"
+
         telescope.setup({
             defaults = {
                 file_ignore_patterns = { "node_modules", ".git/", "target/", "__pycache__" },
+                mappings = {
+                    i = { ["<C-u>"] = false, ["<C-d>"] = false },
+                },
+            },
+            pickers = {
+                find_files = {
+                    find_command = { fd_bin, "--type", "f", "--hidden", "--exclude", ".git" },
+                },
+                git_files = {
+                    show_untracked = true,
+                },
             },
         })
 
         pcall(telescope.load_extension, "fzf")
 
         vim.keymap.set("n", "<leader>pf", builtin.find_files, { desc = "Find files" })
-        vim.keymap.set("n", "<C-p>", builtin.git_files, { desc = "Git files" })
+        vim.keymap.set("n", "<C-p>", function()
+            local git_ok = pcall(builtin.git_files)
+            if not git_ok then
+                builtin.find_files()
+            end
+        end, { desc = "Git files / find files" })
         vim.keymap.set("n", "<leader>ps", function()
             builtin.grep_string({ search = vim.fn.input("Grep > ") })
         end, { desc = "Grep string" })
         vim.keymap.set("n", "<leader>pws", function()
-            local word = vim.fn.expand("<cword>")
-            builtin.grep_string({ search = word })
+            builtin.grep_string({ search = vim.fn.expand("<cword>") })
         end, { desc = "Grep word under cursor" })
         vim.keymap.set("n", "<leader>pWs", function()
-            local word = vim.fn.expand("<cWORD>")
-            builtin.grep_string({ search = word })
+            builtin.grep_string({ search = vim.fn.expand("<cWORD>") })
         end, { desc = "Grep WORD under cursor" })
         vim.keymap.set("n", "<leader>pb", builtin.buffers, { desc = "Buffers" })
         vim.keymap.set("n", "<leader>vh", builtin.help_tags, { desc = "Help tags" })
