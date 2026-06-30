@@ -114,13 +114,17 @@ return {
             })
 
             vim.diagnostic.config({
-                float = { focusable = false, style = "minimal", border = "rounded" },
+                float = { focusable = false, style = "minimal", border = "rounded", source = true },
                 virtual_text = { spacing = 4, prefix = "●" },
                 signs = true,
                 underline = true,
                 update_in_insert = false,
                 severity_sort = true,
             })
+
+            vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Show full error" })
+            vim.keymap.set("n", "[e", vim.diagnostic.goto_prev, { desc = "Previous diagnostic" })
+            vim.keymap.set("n", "]e", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
 
             vim.api.nvim_create_autocmd("LspAttach", {
                 group = vim.api.nvim_create_augroup("forge-lsp-attach", { clear = true }),
