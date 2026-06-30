@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
-
 set -e
 
+# ── Detecção de plataforma ────────────────────────────────────────────────────
 OS="$(uname -s)"
+ARCH="$(uname -m)"
 IS_WSL=false
 [[ "$(uname -r)" == *microsoft* ]] && IS_WSL=true
 
-echo "==> dotfiles install: OS=$OS, WSL=$IS_WSL"
+echo "==> dotfiles | OS=$OS ARCH=$ARCH WSL=$IS_WSL"
 
-# ── Homebrew (macOS) ─────────────────────────────────────────────────────────
+# ── macOS ─────────────────────────────────────────────────────────────────────
 if [[ "$OS" == "Darwin" ]]; then
+    # Homebrew
     if ! command -v brew &>/dev/null; then
-        echo "==> Installing Homebrew..."
+        echo "==> Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        eval "$(/opt/homebrew/bin/brew shellenv)"
+        [[ "$ARCH" == "arm64" ]] && eval "$(/opt/homebrew/bin/brew shellenv)" || eval "$(/usr/local/bin/brew shellenv)"
     fi
-    echo "==> Installing brew packages..."
-    brew install neovim tmux ripgrep fzf fd git go oh-my-posh zsh 2>/dev/null || true
+
+    echo "==> brew packages..."
+    brew install neovim tmux ripgrep fzf fd git go oh-my-posh zoxide 2>/dev/null || true
 fi
 
-# ── apt packages (Linux/WSL) ─────────────────────────────────────────────────
+# ── Linux / WSL ───────────────────────────────────────────────────────────────
 if [[ "$OS" == "Linux" ]]; then
-    echo "==> Installing apt packages..."
+    echo "==> apt packages..."
     sudo apt-get update -q
-    sudo apt-get install -y git curl zsh ripgrep fd-find unzip 2>/dev/null || true
+    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential 2>/dev/null || true
 
     # fd symlink
     if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
@@ -31,46 +34,61 @@ if [[ "$OS" == "Linux" ]]; then
         ln -sf "$(which fdfind)" ~/.local/bin/fd
     fi
 
-    # fzf
-    if ! command -v fzf &>/dev/null; then
-        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-        ~/.fzf/install --all --no-bash --no-fish
-    fi
-
-    # oh-my-posh
-    if ! command -v oh-my-posh &>/dev/null; then
-        echo "==> Installing oh-my-posh..."
-        curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
-    fi
-
-    # Go
-    if ! command -v go &>/dev/null || [[ "$($HOME/.local/go/bin/go version 2>/dev/null | awk '{print $3}' | tr -d 'go')" < "1.21" ]]; then
-        echo "==> Installing Go..."
-        GO_VERSION=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1 | tr -d 'go')
-        curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
-        rm -rf ~/.local/go
-        tar -C ~/.local -xzf /tmp/go.tar.gz
-        rm /tmp/go.tar.gz
-    fi
-
     # neovim
     if ! command -v nvim &>/dev/null; then
-        echo "==> Installing neovim..."
+        echo "==> neovim..."
         curl -fsSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz -o /tmp/nvim.tar.gz
         tar -C ~/.local -xzf /tmp/nvim.tar.gz
         rm /tmp/nvim.tar.gz
         mkdir -p ~/.local/bin
         ln -sf ~/.local/nvim-linux-x86_64/bin/nvim ~/.local/bin/nvim
     fi
+
+    # Go
+    if ! command -v go &>/dev/null || ! go version 2>/dev/null | grep -qE "go1\.(2[1-9]|[3-9][0-9])"; then
+        echo "==> Go..."
+        GO_VER=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1 | tr -d 'go')
+        curl -fsSL "https://go.dev/dl/go${GO_VER}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
+        rm -rf ~/.local/go && tar -C ~/.local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz
+    fi
+    export PATH="$HOME/.local/go/bin:$HOME/.local/bin:$PATH"
+
+    # tmux
+    command -v tmux &>/dev/null || sudo apt-get install -y tmux
+
+    # fzf
+    if ! command -v fzf &>/dev/null; then
+        echo "==> fzf..."
+        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+        ~/.fzf/install --all --no-bash --no-fish
+    fi
+
+    # zoxide
+    if ! command -v zoxide &>/dev/null; then
+        curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+    fi
+
+    # oh-my-posh
+    if ! command -v oh-my-posh &>/dev/null; then
+        echo "==> oh-my-posh..."
+        curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
+    fi
+fi
+
+# ── zsh como shell padrão ─────────────────────────────────────────────────────
+if [[ "$SHELL" != *zsh ]]; then
+    echo "==> Setting zsh as default shell..."
+    ZSH_PATH=$(command -v zsh)
+    grep -qxF "$ZSH_PATH" /etc/shells || echo "$ZSH_PATH" | sudo tee -a /etc/shells
+    chsh -s "$ZSH_PATH"
 fi
 
 # ── oh-my-zsh ─────────────────────────────────────────────────────────────────
 if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
-    echo "==> Installing oh-my-zsh..."
+    echo "==> oh-my-zsh..."
     RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 fi
 
-# zsh plugins
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]]; then
     git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
@@ -78,6 +96,22 @@ fi
 if [[ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]]; then
     git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 fi
+
+# ── NVM ───────────────────────────────────────────────────────────────────────
+if [[ ! -d "$HOME/.nvm" ]]; then
+    echo "==> nvm..."
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    export NVM_DIR="$HOME/.nvm"
+    source "$NVM_DIR/nvm.sh"
+    nvm install --lts
+fi
+
+# ── Rust ──────────────────────────────────────────────────────────────────────
+if ! command -v rustup &>/dev/null; then
+    echo "==> Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
 
 # ── Symlinks ──────────────────────────────────────────────────────────────────
 mkdir -p ~/.vim/undodir ~/.config ~/.local/bin
@@ -87,11 +121,15 @@ if [[ -d ~/.config/nvim && ! -L ~/.config/nvim ]]; then
     mv ~/.config/nvim ~/.config/nvim.bak.$(date +%s)
 fi
 ln -sfn ~/.dotfiles/nvim/.config/nvim ~/.config/nvim
-echo "==> nvim config linked"
+echo "==> nvim linked"
 
 # tmux
 ln -sf ~/.dotfiles/tmux/.tmux.conf ~/.tmux.conf
-echo "==> tmux config linked"
+echo "==> tmux linked"
+
+# zshrc (substitui o existente pelo do dotfiles)
+ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
+echo "==> zshrc linked"
 
 # scripts
 for script in ~/.dotfiles/bin/*; do
@@ -100,43 +138,9 @@ for script in ~/.dotfiles/bin/*; do
 done
 echo "==> scripts linked"
 
-# ── zshrc ─────────────────────────────────────────────────────────────────────
-ZSHRC="$HOME/.zshrc"
-
-# Garante que o bloco do dotfiles existe no zshrc
-if ! grep -q 'dotfiles config' "$ZSHRC" 2>/dev/null; then
-    cat >> "$ZSHRC" << 'EOF'
-
-# ── dotfiles config ───────────────────────────────────────────────────────────
-export ZSH_DISABLE_COMPFIX=true
-export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$HOME/go/bin:$HOME/.cargo/bin:$PATH"
-
-# macOS: homebrew Go
-[[ -d /opt/homebrew/bin ]] && export PATH="/opt/homebrew/bin:$PATH"
-
-# neovim
-[[ -d /opt/nvim-linux-x86_64/bin ]] && export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-
-# nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# fzf
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-
-# zoxide
-command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
-
-# oh-my-posh
-eval "$(oh-my-posh init zsh --config ~/.dotfiles/gruber.omp.json)"
-# ─────────────────────────────────────────────────────────────────────────────
-EOF
-    echo "==> zshrc updated"
-fi
-
-# ── Bootstrap nvim plugins ───────────────────────────────────────────────────
-echo "==> Bootstrapping nvim plugins..."
+# ── Bootstrap nvim plugins ────────────────────────────────────────────────────
+echo "==> nvim plugins..."
 nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
 
 echo ""
-echo "  Done. Run: source ~/.zshrc"
+echo "  Done! Run: source ~/.zshrc"
