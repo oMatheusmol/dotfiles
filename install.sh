@@ -6,35 +6,36 @@ OS="$(uname -s)"
 IS_WSL=false
 [[ "$(uname -r)" == *microsoft* ]] && IS_WSL=true
 
-echo "==> forge install: OS=$OS, WSL=$IS_WSL"
+echo "==> dotfiles install: OS=$OS, WSL=$IS_WSL"
 
-# Install fd
-if ! command -v fd &>/dev/null && ! command -v fdfind &>/dev/null; then
-    echo "==> Installing fd..."
-    if [[ "$OS" == "Darwin" ]]; then
-        brew install fd
-    else
+# macOS: install brew dependencies
+if [[ "$OS" == "Darwin" ]]; then
+    if ! command -v brew &>/dev/null; then
+        echo "==> Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+    echo "==> Installing dependencies via brew..."
+    brew install neovim tmux ripgrep fzf fd git oh-my-posh go 2>/dev/null || true
+fi
+
+# Linux: install fd
+if [[ "$OS" == "Linux" ]]; then
+    if ! command -v fd &>/dev/null && ! command -v fdfind &>/dev/null; then
+        echo "==> Installing fd..."
         sudo apt-get install -y fd-find
         mkdir -p ~/.local/bin
         ln -sf "$(which fdfind)" ~/.local/bin/fd
     fi
-fi
-
-# Install ripgrep if missing
-if ! command -v rg &>/dev/null; then
-    echo "==> Installing ripgrep..."
-    if [[ "$OS" == "Darwin" ]]; then
-        brew install ripgrep
-    else
+    if ! command -v rg &>/dev/null; then
         sudo apt-get install -y ripgrep
     fi
-fi
-
-# Install fzf if missing
-if ! command -v fzf &>/dev/null; then
-    echo "==> Installing fzf..."
-    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-    ~/.fzf/install --all
+    if ! command -v fzf &>/dev/null; then
+        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+        ~/.fzf/install --all
+    fi
+    if ! command -v oh-my-posh &>/dev/null; then
+        curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
+    fi
 fi
 
 # Undo directory for nvim
@@ -61,13 +62,24 @@ for script in ~/.dotfiles/bin/*; do
     echo "==> Linked script: $(basename "$script")"
 done
 
-# Ensure ~/.local/bin is in PATH (add to zshrc if missing)
-if ! grep -q 'local/bin' ~/.zshrc 2>/dev/null; then
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-    echo "==> Added ~/.local/bin to PATH in .zshrc"
+# Add PATH and oh-my-posh to zshrc if missing
+ZSHRC="$HOME/.zshrc"
+
+if ! grep -q 'local/bin' "$ZSHRC" 2>/dev/null; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$ZSHRC"
+fi
+
+if ! grep -q 'oh-my-posh' "$ZSHRC" 2>/dev/null; then
+    echo 'eval "$(oh-my-posh init zsh --config ~/.dotfiles/gruber.omp.json)"' >> "$ZSHRC"
+    echo "==> oh-my-posh added to zshrc"
+fi
+
+# macOS: add brew Go to PATH
+if [[ "$OS" == "Darwin" ]] && ! grep -q 'go/bin' "$ZSHRC" 2>/dev/null; then
+    echo 'export PATH="$PATH:$(brew --prefix go)/bin"' >> "$ZSHRC"
 fi
 
 echo ""
-echo "  forge is ready."
+echo "  dotfiles installed."
 echo "  Open nvim to bootstrap plugins automatically."
-echo "  Source your shell: source ~/.zshrc"
+echo "  Run: source ~/.zshrc"
