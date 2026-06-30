@@ -1,16 +1,11 @@
 return {
-    "blazkowolf/gruber-darker.nvim",
+    "thimc/gruber-darker.nvim",
+    lazy = false,
     priority = 1000,
     config = function()
         require("gruber-darker").setup({
+            transparent = true,
             bold = true,
-            italic = {
-                strings = false,
-                comments = true,
-                operators = false,
-                folds = true,
-            },
-            undercurl = true,
             underline = true,
         })
         vim.cmd.colorscheme("gruber-darker")
