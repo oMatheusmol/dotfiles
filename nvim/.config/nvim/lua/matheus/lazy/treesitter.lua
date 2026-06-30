@@ -5,6 +5,10 @@ return {
         "nvim-treesitter/nvim-treesitter-textobjects",
     },
     config = function()
+        -- Compile parsers from source via git (avoids broken precompiled downloads)
+        require("nvim-treesitter.install").prefer_git = true
+        require("nvim-treesitter.install").compilers = { "gcc", "cc" }
+
         require("nvim-treesitter.configs").setup({
             ensure_installed = {
                 "lua", "vim", "vimdoc", "query",
