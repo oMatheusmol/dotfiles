@@ -3,9 +3,20 @@ vim.g.mapleader = " "
 -- File explorer
 vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 
--- Move selected lines up/down
-vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
-vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
+-- Move selected lines up/down.
+-- Reindent (=) only when the buffer has a real indent method; otherwise `=`
+-- would flatten the moved lines to column 0 in filetypes without an indent script.
+local function move_selection(motion)
+	-- Only indentexpr/cindent/lisp reindent reliably. smartindent is intentionally
+	-- excluded: on its own (no indentexpr) it flattens reindented lines to column 0.
+	local has_indent = vim.bo.indentexpr ~= ""
+		or vim.bo.cindent
+		or vim.bo.lisp
+	local seq = ":m " .. motion .. "<CR>gv" .. (has_indent and "=gv" or "")
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(seq, true, false, true), "x", false)
+end
+vim.keymap.set("v", "J", function() move_selection("'>+1") end, { desc = "Move selection down" })
+vim.keymap.set("v", "K", function() move_selection("'<-2") end, { desc = "Move selection up" })
 
 -- Keep cursor centered
 vim.keymap.set("n", "J", "mzJ`z")
