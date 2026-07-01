@@ -18,8 +18,8 @@ if [[ "$OS" == "Darwin" ]]; then
         [[ "$ARCH" == "arm64" ]] && eval "$(/opt/homebrew/bin/brew shellenv)" || eval "$(/usr/local/bin/brew shellenv)"
     fi
 
-    echo "==> brew packages..."
-    brew install neovim tmux ripgrep fzf fd git go oh-my-posh zoxide 2>/dev/null || true
+    echo "==> brew bundle..."
+    brew bundle --file ~/.dotfiles/Brewfile 2>/dev/null || true
 fi
 
 # ── Linux / WSL ───────────────────────────────────────────────────────────────
@@ -130,6 +130,17 @@ echo "==> tmux linked"
 # zshrc (substitui o existente pelo do dotfiles)
 ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
 echo "==> zshrc linked"
+
+# gitconfig
+ln -sf ~/.dotfiles/git/.gitconfig ~/.gitconfig
+echo "==> gitconfig linked"
+
+# ghostty (macOS)
+if [[ "$OS" == "Darwin" ]]; then
+    mkdir -p ~/.config/ghostty
+    ln -sf ~/.dotfiles/ghostty/.config/ghostty/config ~/.config/ghostty/config
+    echo "==> ghostty linked"
+fi
 
 # scripts
 for script in ~/.dotfiles/bin/*; do
