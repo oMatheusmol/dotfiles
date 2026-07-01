@@ -24,6 +24,64 @@ return {
 
             require("fidget").setup({})
             require("mason").setup()
+
+            -- Compose files are detected as plain `yaml`, but the compose LSP only
+            -- attaches to `yaml.docker-compose`, so tag them (yamlls still attaches too).
+            vim.filetype.add({
+                pattern = {
+                    ["docker%-compose%.ya?ml"] = "yaml.docker-compose",
+                    ["docker%-compose%..*%.ya?ml"] = "yaml.docker-compose",
+                    ["compose%.ya?ml"] = "yaml.docker-compose",
+                    ["compose%..*%.ya?ml"] = "yaml.docker-compose",
+                },
+            })
+
+            -- Neovim 0.11+ / mason-lspconfig v2: the old `handlers` API is gone.
+            -- Servers are configured with vim.lsp.config() and auto-enabled by
+            -- mason-lspconfig (which calls vim.lsp.enable() for installed servers).
+
+            -- Default config merged into every server.
+            vim.lsp.config("*", { capabilities = capabilities })
+
+            -- Per-server overrides (previously the mason-lspconfig `handlers`).
+            vim.lsp.config("lua_ls", {
+                settings = {
+                    Lua = {
+                        runtime = { version = "LuaJIT" },
+                        diagnostics = { globals = { "vim" } },
+                        workspace = {
+                            library = vim.api.nvim_get_runtime_file("", true),
+                            checkThirdParty = false,
+                        },
+                        telemetry = { enable = false },
+                    },
+                },
+            })
+
+            vim.lsp.config("gopls", {
+                settings = {
+                    gopls = {
+                        hints = {
+                            assignVariableTypes = true,
+                            compositeLiteralFields = true,
+                            functionTypeParameters = true,
+                            parameterNames = true,
+                            rangeVariableTypes = true,
+                        },
+                    },
+                },
+            })
+
+            vim.lsp.config("pyright", {
+                settings = {
+                    python = {
+                        analysis = {
+                            typeCheckingMode = "basic",
+                        },
+                    },
+                },
+            })
+
             require("mason-lspconfig").setup({
                 ensure_installed = {
                     "lua_ls",
@@ -33,59 +91,19 @@ return {
                     "gopls",
                     "eslint",
                     "tailwindcss",
+                    "jsonls",
+                    "yamlls",
+                    "bashls",
+                    "dockerls",
+                    "clangd",
+                    "html",
+                    "cssls",
+                    "marksman",
+                    "docker_compose_language_service",
                 },
-                handlers = {
-                    function(server_name)
-                        require("lspconfig")[server_name].setup({ capabilities = capabilities })
-                    end,
-
-                    ["lua_ls"] = function()
-                        require("lspconfig").lua_ls.setup({
-                            capabilities = capabilities,
-                            settings = {
-                                Lua = {
-                                    runtime = { version = "LuaJIT" },
-                                    diagnostics = { globals = { "vim" } },
-                                    workspace = {
-                                        library = vim.api.nvim_get_runtime_file("", true),
-                                        checkThirdParty = false,
-                                    },
-                                    telemetry = { enable = false },
-                                },
-                            },
-                        })
-                    end,
-
-                    ["gopls"] = function()
-                        require("lspconfig").gopls.setup({
-                            capabilities = capabilities,
-                            settings = {
-                                gopls = {
-                                    hints = {
-                                        assignVariableTypes = true,
-                                        compositeLiteralFields = true,
-                                        functionTypeParameters = true,
-                                        parameterNames = true,
-                                        rangeVariableTypes = true,
-                                    },
-                                },
-                            },
-                        })
-                    end,
-
-                    ["pyright"] = function()
-                        require("lspconfig").pyright.setup({
-                            capabilities = capabilities,
-                            settings = {
-                                python = {
-                                    analysis = {
-                                        typeCheckingMode = "basic",
-                                    },
-                                },
-                            },
-                        })
-                    end,
-                },
+                -- Exclude basedpyright so Python uses pyright (configured above)
+                -- instead of double-attaching a second type checker. ruff still attaches.
+                automatic_enable = { exclude = { "basedpyright" } },
             })
 
             local luasnip = require("luasnip")
