@@ -19,9 +19,13 @@ return {
         -- Usa fdfind (nome do binário no Ubuntu/Debian)
         local fd_bin = vim.fn.executable("fd") == 1 and "fd" or "fdfind"
 
+        -- Ignora esses diretórios SÓ nos pickers de arquivo/grep — nunca no defaults,
+        -- senão os pickers de LSP (gd/gr/gI) filtram a definição de código de lib
+        -- (node_modules, target/, site-packages...) e parece que "não achou".
+        local ignore = { "node_modules", ".git/", "target/", "__pycache__" }
+
         telescope.setup({
             defaults = {
-                file_ignore_patterns = { "node_modules", ".git/", "target/", "__pycache__" },
                 mappings = {
                     i = { ["<C-u>"] = false, ["<C-d>"] = false },
                 },
@@ -29,9 +33,16 @@ return {
             pickers = {
                 find_files = {
                     find_command = { fd_bin, "--type", "f", "--hidden", "--exclude", ".git" },
+                    file_ignore_patterns = ignore,
                 },
                 git_files = {
                     show_untracked = true,
+                },
+                live_grep = {
+                    file_ignore_patterns = ignore,
+                },
+                grep_string = {
+                    file_ignore_patterns = ignore,
                 },
             },
         })
