@@ -1,6 +1,6 @@
 return {
     "nvim-telescope/telescope.nvim",
-    tag = "0.1.8",
+    tag = "v0.2.2", -- 0.1.8 usava a API antiga do nvim-treesitter (ft_to_lang), quebrada na branch main
     lazy = false,
     dependencies = {
         "nvim-lua/plenary.nvim",
