@@ -1,9 +1,8 @@
 font-family              = JetBrainsMono Nerd Font
-font-size                = 14
+font-size                = 16
 theme                    = tsoding-dark
 cursor-style             = bar
 cursor-style-blink       = true
 window-padding-x         = 12
 window-padding-y         = 8
 background-opacity       = 1.0
-background               = #0d0d0d
