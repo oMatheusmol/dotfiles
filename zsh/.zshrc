@@ -16,7 +16,7 @@ if $IS_MACOS; then
 fi
 
 # nvim (linux binary, arch-agnostic — installed as nvim-linux-x86_64 or nvim-linux-arm64)
-for _nvim_dir in "$HOME"/.local/nvim-linux-*/bin; do
+for _nvim_dir in "$HOME"/.local/nvim-linux-*/bin(N); do
     [[ -d "$_nvim_dir" ]] && export PATH="$_nvim_dir:$PATH"
 done
 unset _nvim_dir
