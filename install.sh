@@ -32,6 +32,10 @@ fi
 
 # ── Linux / WSL ───────────────────────────────────────────────────────────────
 if [[ "$OS" == "Linux" ]]; then
+    # Prepend early so every version check below (nvim, go) sees anything we
+    # install into ~/.local/bin ahead of an older apt-installed binary on PATH.
+    export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$PATH"
+
     echo "==> apt packages..."
     sudo apt-get update -q
     # ncurses-term provides the tmux-256color terminfo entry — without it,
@@ -54,24 +58,56 @@ if [[ "$OS" == "Linux" ]]; then
         ln -sf "$(which fdfind)" ~/.local/bin/fd
     fi
 
-    # neovim — prefer the PPA on Ubuntu: it's built against that release's own
-    # glibc, avoiding "GLIBC_x.xx not found" errors from the generic prebuilt
-    # binary on WSL/older Ubuntu releases. Falls back to the raw tarball
-    # (e.g. non-Ubuntu Debian derivatives) only if the PPA route didn't work.
-    if ! command -v nvim &>/dev/null; then
-        echo "==> neovim..."
+    # neovim — this config needs >=0.10 to do anything useful (lazy.nvim +
+    # modern Lua APIs; treesitter's main branch wants 0.12+). Try
+    # increasingly aggressive methods, checking the ACTUAL installed version
+    # after each one — `command -v nvim` alone isn't enough, since e.g. the
+    # neovim PPA doesn't build for Ubuntu 20.04 anymore and apt silently
+    # falls back to the distro's own ancient 0.4.3 package instead.
+    nvim_new_enough() {
+        command -v nvim &>/dev/null || return 1
+        local line major minor
+        line=$(nvim --version 2>/dev/null | head -1)
+        major=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+        minor=$(echo "$line" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f2)
+        [ -n "$major" ] || return 1
+        [ "$major" -gt 0 ] && return 0
+        [ "${minor:-0}" -ge 10 ]
+    }
+
+    if ! nvim_new_enough; then
+        echo "==> neovim (PPA)..."
         if grep -qi ubuntu /etc/os-release 2>/dev/null; then
             sudo add-apt-repository -y ppa:neovim-ppa/unstable 2>/dev/null || true
             sudo apt-get update -q
             sudo apt-get install -y neovim 2>/dev/null || true
         fi
     fi
-    if ! command -v nvim &>/dev/null; then
+
+    if ! nvim_new_enough; then
+        echo "==> neovim (prebuilt binary)..."
+        rm -rf "$HOME/.local/nvim-linux-${NVIM_ARCH}"
         curl -fsSL "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz" -o /tmp/nvim.tar.gz
-        tar -C ~/.local -xzf /tmp/nvim.tar.gz
-        rm /tmp/nvim.tar.gz
+        tar -C ~/.local -xzf /tmp/nvim.tar.gz 2>/dev/null || true
+        rm -f /tmp/nvim.tar.gz
         mkdir -p ~/.local/bin
-        ln -sf "$HOME/.local/nvim-linux-${NVIM_ARCH}/bin/nvim" ~/.local/bin/nvim
+        [ -x "$HOME/.local/nvim-linux-${NVIM_ARCH}/bin/nvim" ] && ln -sf "$HOME/.local/nvim-linux-${NVIM_ARCH}/bin/nvim" ~/.local/bin/nvim
+    fi
+
+    if ! nvim_new_enough; then
+        # Last resort: neither the PPA nor the prebuilt binary yielded a
+        # compatible+new-enough nvim (e.g. Ubuntu 20.04: PPA dropped focal
+        # support, and the prebuilt binary needs a newer glibc than 20.04
+        # ships). Building from source links against whatever glibc is
+        # actually on this machine, so it always works, just slower.
+        echo "==> neovim (building from source — takes a few minutes)..."
+        sudo apt-get install -y ninja-build gettext cmake pkg-config 2>/dev/null || true
+        rm -rf /tmp/neovim-src
+        git clone --depth 1 https://github.com/neovim/neovim /tmp/neovim-src
+        (cd /tmp/neovim-src && make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/.local/nvim-src" install)
+        mkdir -p ~/.local/bin
+        ln -sf "$HOME/.local/nvim-src/bin/nvim" ~/.local/bin/nvim
+        rm -rf /tmp/neovim-src
     fi
 
     # Go
@@ -113,7 +149,7 @@ if [[ "$SHELL" != *zsh ]]; then
     echo "==> Setting zsh as default shell..."
     ZSH_PATH=$(command -v zsh)
     grep -qxF "$ZSH_PATH" /etc/shells || echo "$ZSH_PATH" | sudo tee -a /etc/shells
-    chsh -s "$ZSH_PATH"
+    chsh -s "$ZSH_PATH" || echo "!! chsh failed (wrong password?) — run 'chsh -s $ZSH_PATH' yourself later"
 fi
 
 # ── oh-my-zsh ─────────────────────────────────────────────────────────────────
