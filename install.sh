@@ -83,11 +83,14 @@ if [[ "$OS" == "Linux" ]]; then
     # tmux
     command -v tmux &>/dev/null || sudo apt-get install -y tmux
 
-    # fzf
+    # fzf — `git clone` refuses to clone into a non-empty ~/.fzf (leftover
+    # from a previous partial run, or a manual install), which would abort
+    # the whole script since it runs with `set -e`. Only clone if missing;
+    # always (re-)run install so the keybindings/completion get wired up.
     if ! command -v fzf &>/dev/null; then
         echo "==> fzf..."
-        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-        ~/.fzf/install --all --no-bash --no-fish
+        [[ -d ~/.fzf ]] || git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+        ~/.fzf/install --all --no-bash --no-fish 2>/dev/null || true
     fi
 
     # zoxide
