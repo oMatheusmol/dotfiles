@@ -46,18 +46,42 @@ if [[ "$OS" == "Linux" ]]; then
     # Python 3.11 (Piper TTS venv — onnxruntime/piper-phonemize wheels lag
     # newer pythons, so this is kept separate from the line above: if the
     # package name doesn't exist on this distro, it must not take the rest
-    # of the apt install down with it). Older Ubuntu releases (e.g. 20.04)
-    # don't carry it in the default repos at all — the deadsnakes PPA does.
+    # of the apt install down with it). Same cascade shape as neovim above:
+    # default repos -> deadsnakes PPA -> build from source, each only
+    # attempted if the previous one didn't yield a working python3.11
+    # (deadsnakes stopped building it for old releases like Ubuntu 20.04,
+    # same story as the neovim PPA dropping focal support).
     if ! command -v python3.11 &>/dev/null; then
         echo "==> python3.11..."
         sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || true
-        if ! command -v python3.11 &>/dev/null && grep -qi ubuntu /etc/os-release 2>/dev/null; then
-            sudo add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
-            sudo apt-get update -q
-            sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || true
-        fi
-        command -v python3.11 &>/dev/null || echo "!! python3.11 unavailable, Piper voice setup will be skipped"
     fi
+
+    if ! command -v python3.11 &>/dev/null && grep -qi ubuntu /etc/os-release 2>/dev/null; then
+        sudo add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
+        sudo apt-get update -q
+        sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || true
+    fi
+
+    if ! command -v python3.11 &>/dev/null; then
+        echo "==> python3.11 (building from source — not available via apt or deadsnakes for this release)..."
+        sudo apt-get install -y libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+            libsqlite3-dev libffi-dev liblzma-dev 2>/dev/null || true
+        PY_VER=3.11.9
+        rm -rf /tmp/python-src && mkdir -p /tmp/python-src
+        curl -fsSL "https://www.python.org/ftp/python/${PY_VER}/Python-${PY_VER}.tgz" -o /tmp/python.tgz
+        tar -C /tmp/python-src --strip-components=1 -xzf /tmp/python.tgz 2>/dev/null || true
+        rm -f /tmp/python.tgz
+        if [ -f /tmp/python-src/configure ]; then
+            (cd /tmp/python-src \
+                && ./configure --prefix="$HOME/.local/python3.11" >/dev/null \
+                && make -j"$(nproc)" >/dev/null \
+                && make altinstall >/dev/null) || true
+            [ -x "$HOME/.local/python3.11/bin/python3.11" ] && ln -sf "$HOME/.local/python3.11/bin/python3.11" ~/.local/bin/python3.11
+        fi
+        rm -rf /tmp/python-src
+    fi
+
+    command -v python3.11 &>/dev/null || echo "!! python3.11 unavailable, Piper voice setup will be skipped"
 
     # fd symlink
     if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
@@ -184,15 +208,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 command -v node &>/dev/null || nvm install --lts
 
-# ── tree-sitter CLI ───────────────────────────────────────────────────────────
-# nvim-treesitter's main branch shells out to the standalone `tree-sitter`
-# CLI to compile parsers (`tree-sitter build`) — build-essential/gcc alone
-# isn't enough. npm ships a prebuilt binary, so this doesn't need a compile.
-if ! command -v tree-sitter &>/dev/null; then
-    echo "==> tree-sitter-cli..."
-    npm install -g tree-sitter-cli 2>/dev/null || true
-fi
-
 # ── Claude Code CLI ───────────────────────────────────────────────────────────
 if ! command -v claude &>/dev/null; then
     echo "==> Claude Code CLI..."
@@ -206,6 +221,30 @@ if ! command -v rustup &>/dev/null; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 fi
 export PATH="$HOME/.cargo/bin:$PATH"
+
+# ── tree-sitter CLI ───────────────────────────────────────────────────────────
+# nvim-treesitter's main branch shells out to the standalone `tree-sitter`
+# CLI to compile parsers (`tree-sitter build`) — build-essential/gcc alone
+# isn't enough. npm ships a prebuilt binary (fast, no compile), but on an
+# older glibc (e.g. Ubuntu 20.04) that binary can't even run — same story as
+# neovim/python3.11 above. cargo compiles it locally, so it always works.
+tree_sitter_works() {
+    command -v tree-sitter &>/dev/null && tree-sitter --version &>/dev/null
+}
+
+if ! tree_sitter_works; then
+    echo "==> tree-sitter-cli (npm)..."
+    npm install -g tree-sitter-cli 2>/dev/null || true
+fi
+
+if ! tree_sitter_works; then
+    echo "==> tree-sitter-cli (building via cargo — prebuilt binary doesn't run on this system's glibc)..."
+    if command -v cargo &>/dev/null; then
+        cargo install tree-sitter-cli --locked 2>/dev/null || cargo install tree-sitter-cli 2>/dev/null || true
+    fi
+fi
+
+tree_sitter_works || echo "!! tree-sitter-cli unavailable — nvim-treesitter parser installs will fail"
 
 # ── Piper TTS (voz local para /say e o `R` do copy-mode do tmux) ─────────────
 PIPER_HOME="$HOME/.local/share/piper"
