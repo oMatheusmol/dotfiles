@@ -9,6 +9,14 @@ IS_WSL=false
 
 echo "==> dotfiles | OS=$OS ARCH=$ARCH WSL=$IS_WSL"
 
+# Go names releases amd64/arm64, Neovim names releases x86_64/arm64, but
+# `uname -m` reports x86_64/aarch64 — normalize once here instead of
+# hardcoding one architecture in each download below.
+GO_ARCH="amd64"; NVIM_ARCH="x86_64"
+if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+    GO_ARCH="arm64"; NVIM_ARCH="arm64"
+fi
+
 # ── macOS ─────────────────────────────────────────────────────────────────────
 if [[ "$OS" == "Darwin" ]]; then
     # Homebrew
@@ -56,18 +64,18 @@ if [[ "$OS" == "Linux" ]]; then
         fi
     fi
     if ! command -v nvim &>/dev/null; then
-        curl -fsSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz -o /tmp/nvim.tar.gz
+        curl -fsSL "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${NVIM_ARCH}.tar.gz" -o /tmp/nvim.tar.gz
         tar -C ~/.local -xzf /tmp/nvim.tar.gz
         rm /tmp/nvim.tar.gz
         mkdir -p ~/.local/bin
-        ln -sf ~/.local/nvim-linux-x86_64/bin/nvim ~/.local/bin/nvim
+        ln -sf "$HOME/.local/nvim-linux-${NVIM_ARCH}/bin/nvim" ~/.local/bin/nvim
     fi
 
     # Go
     if ! command -v go &>/dev/null || ! go version 2>/dev/null | grep -qE "go1\.(2[1-9]|[3-9][0-9])"; then
         echo "==> Go..."
         GO_VER=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1 | tr -d 'go')
-        curl -fsSL "https://go.dev/dl/go${GO_VER}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
+        curl -fsSL "https://go.dev/dl/go${GO_VER}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz
         rm -rf ~/.local/go && tar -C ~/.local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz
     fi
     export PATH="$HOME/.local/go/bin:$HOME/.local/bin:$PATH"

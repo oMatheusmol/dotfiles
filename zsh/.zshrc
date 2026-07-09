@@ -15,8 +15,11 @@ if $IS_MACOS; then
     [[ -f /usr/local/bin/brew ]] && eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-# nvim (linux binary)
-[[ -d "$HOME/.local/nvim-linux-x86_64/bin" ]] && export PATH="$HOME/.local/nvim-linux-x86_64/bin:$PATH"
+# nvim (linux binary, arch-agnostic — installed as nvim-linux-x86_64 or nvim-linux-arm64)
+for _nvim_dir in "$HOME"/.local/nvim-linux-*/bin; do
+    [[ -d "$_nvim_dir" ]] && export PATH="$_nvim_dir:$PATH"
+done
+unset _nvim_dir
 
 # ── WSL clipboard ─────────────────────────────────────────────────────────────
 if $IS_WSL; then
