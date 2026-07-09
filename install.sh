@@ -170,9 +170,20 @@ fi
 if [[ ! -d "$HOME/.nvm" ]]; then
     echo "==> nvm..."
     curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-    export NVM_DIR="$HOME/.nvm"
-    source "$NVM_DIR/nvm.sh"
-    nvm install --lts
+fi
+# Source regardless of whether nvm was just installed or already there, so
+# `npm` is on PATH for the tree-sitter-cli step below even on a re-run.
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+command -v node &>/dev/null || nvm install --lts
+
+# ── tree-sitter CLI ───────────────────────────────────────────────────────────
+# nvim-treesitter's main branch shells out to the standalone `tree-sitter`
+# CLI to compile parsers (`tree-sitter build`) — build-essential/gcc alone
+# isn't enough. npm ships a prebuilt binary, so this doesn't need a compile.
+if ! command -v tree-sitter &>/dev/null; then
+    echo "==> tree-sitter-cli..."
+    npm install -g tree-sitter-cli 2>/dev/null || true
 fi
 
 # ── Claude Code CLI ───────────────────────────────────────────────────────────
