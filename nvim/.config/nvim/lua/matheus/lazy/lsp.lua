@@ -82,6 +82,22 @@ return {
                 },
             })
 
+            -- ts_ls resolves tsserver from the workspace's own node_modules
+            -- or its own bundled copy — it does NOT check a global npm
+            -- install. Point it at the global one explicitly as a fallback
+            -- for workspaces/machines where neither of those is available.
+            do
+                local npm_root = vim.trim(vim.fn.system("npm root -g"))
+                local ts_lib = npm_root .. "/typescript/lib"
+                if vim.fn.isdirectory(ts_lib) == 1 then
+                    vim.lsp.config("ts_ls", {
+                        init_options = {
+                            tsserver = { path = ts_lib },
+                        },
+                    })
+                end
+            end
+
             require("mason-lspconfig").setup({
                 ensure_installed = {
                     "lua_ls",
