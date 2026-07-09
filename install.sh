@@ -46,10 +46,17 @@ if [[ "$OS" == "Linux" ]]; then
     # Python 3.11 (Piper TTS venv — onnxruntime/piper-phonemize wheels lag
     # newer pythons, so this is kept separate from the line above: if the
     # package name doesn't exist on this distro, it must not take the rest
-    # of the apt install down with it)
+    # of the apt install down with it). Older Ubuntu releases (e.g. 20.04)
+    # don't carry it in the default repos at all — the deadsnakes PPA does.
     if ! command -v python3.11 &>/dev/null; then
         echo "==> python3.11..."
-        sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || echo "!! python3.11 unavailable, Piper voice setup will be skipped"
+        sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || true
+        if ! command -v python3.11 &>/dev/null && grep -qi ubuntu /etc/os-release 2>/dev/null; then
+            sudo add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
+            sudo apt-get update -q
+            sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || true
+        fi
+        command -v python3.11 &>/dev/null || echo "!! python3.11 unavailable, Piper voice setup will be skipped"
     fi
 
     # fd symlink
