@@ -180,6 +180,17 @@ if [[ "$OS" == "Darwin" ]]; then
     echo "==> ghostty linked"
 fi
 
+# skhd (macOS only — global hotkeys for screenshot-to-path / file-to-path)
+if [[ "$OS" == "Darwin" ]]; then
+    ln -sf ~/.dotfiles/skhd/.skhdrc ~/.skhdrc
+    echo "==> skhd linked"
+    if command -v skhd &>/dev/null; then
+        brew services restart skhd 2>/dev/null || true
+    fi
+    echo "!! skhd precisa de permissao de Accessibility (System Settings > Privacy & Security > Accessibility)"
+    echo "!! screencapture precisa de permissao de Screen Recording pro processo que rodar skhd"
+fi
+
 # scripts
 for script in ~/.dotfiles/bin/*; do
     chmod +x "$script"

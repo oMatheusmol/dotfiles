@@ -1,0 +1,8 @@
+# Screenshot: arrasta pra selecionar uma área (espaço = modo janela, esc = cancela).
+# Salva o PNG e copia o caminho absoluto como texto no clipboard.
+cmd + alt - s : ~/.local/bin/screenshot-to-clipboard.sh
+
+# Depois de dar Cmd+C num arquivo no Finder (imagem, vídeo, o que for),
+# converte o clipboard (que é uma referência de arquivo, não texto) pro
+# caminho absoluto como texto, pronto pra colar no terminal.
+cmd + alt - v : ~/.local/bin/file-to-clipboard-path.sh

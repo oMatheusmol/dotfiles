@@ -12,6 +12,7 @@ tap "oven-sh/bun"
 # ── CLI / shell ───────────────────────────────────────────────────────────────
 brew "neovim"
 brew "tmux"
+brew "skhd"
 brew "ripgrep"
 brew "fd"
 brew "fzf"
