@@ -253,9 +253,13 @@ tree_sitter_works || echo "!! tree-sitter-cli unavailable — nvim-treesitter pa
 # bundled copy), ts_ls errors with "Could not find a valid TypeScript
 # installation". A global install is a fallback tsserver can always find,
 # independent of Mason's timing or any given project's own node_modules.
+#
+# Pinned to the 5.x line on purpose: plain `typescript` now resolves to the
+# 7.x native-port rewrite, which dropped lib/tsserver.js entirely — the
+# classic typescript-language-server (ts_ls) can't use it at all.
 if ! command -v tsc &>/dev/null; then
     echo "==> typescript (global)..."
-    npm install -g typescript 2>/dev/null || true
+    npm install -g typescript@5 2>/dev/null || true
 fi
 
 # ── Piper TTS (voz local para /say e o `R` do copy-mode do tmux) ─────────────
