@@ -34,7 +34,10 @@ fi
 if [[ "$OS" == "Linux" ]]; then
     echo "==> apt packages..."
     sudo apt-get update -q
-    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential mpv software-properties-common 2>/dev/null || true
+    # ncurses-term provides the tmux-256color terminfo entry — without it,
+    # tmux.conf's `default-terminal "tmux-256color"` would break instead of
+    # fix truecolor/theme rendering on a minimal WSL/Ubuntu install.
+    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential mpv software-properties-common ncurses-term 2>/dev/null || true
 
     # Python 3.11 (Piper TTS venv — onnxruntime/piper-phonemize wheels lag
     # newer pythons, so this is kept separate from the line above: if the
