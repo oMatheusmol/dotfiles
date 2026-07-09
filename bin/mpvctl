@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+import json
+import os
+import socket
+import sys
+
+SOCK = "/tmp/claude-speak.sock"
+
+
+def send(cmd):
+    if not os.path.exists(SOCK):
+        return None
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(0.3)
+        s.connect(SOCK)
+        s.send(json.dumps({"command": cmd}).encode() + b"\n")
+        data = b""
+        try:
+            while b"\n" not in data:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        except socket.timeout:
+            pass
+        s.close()
+        return data.decode(errors="ignore")
+    except OSError:
+        return None
+
+
+def get_prop(name):
+    raw = send(["get_property", name])
+    if not raw:
+        return None
+    for line in raw.splitlines():
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if obj.get("error") == "success" and "data" in obj:
+            return obj["data"]
+    return None
+
+
+def fmt_time(secs):
+    if secs is None:
+        return "--:--"
+    secs = int(secs)
+    return f"{secs // 60:02d}:{secs % 60:02d}"
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else ""
+
+    if action == "pause":
+        send(["set_property", "pause", True])
+    elif action == "resume":
+        send(["set_property", "pause", False])
+    elif action == "toggle":
+        send(["cycle", "pause"])
+    elif action == "stop":
+        send(["quit"])
+    elif action == "restart":
+        send(["seek", 0, "absolute"])
+    elif action == "speed":
+        direction = sys.argv[2] if len(sys.argv) > 2 else "up"
+        cur = get_prop("speed") or 1.0
+        step = 0.1 if direction == "up" else -0.1
+        new = max(0.3, min(3.0, round(cur + step, 2)))
+        send(["set_property", "speed", new])
+    elif action == "status":
+        if not os.path.exists(SOCK):
+            print("")
+            return
+        paused = get_prop("pause")
+        pos = get_prop("playback-time")
+        dur = get_prop("duration")
+        speed = get_prop("speed")
+        if pos is None or dur is None:
+            print("")
+            return
+        icon = "⏸" if paused else "▶"
+        print(f"{icon} {fmt_time(pos)}/{fmt_time(dur)} {speed or 1.0:.1f}x")
+    else:
+        print(
+            "usage: mpvctl {pause|resume|toggle|stop|restart|speed up|speed down|status}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

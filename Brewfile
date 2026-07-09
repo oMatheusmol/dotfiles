@@ -42,6 +42,9 @@ brew "node@18"
 brew "pnpm"
 brew "yarn"
 brew "python@3.14"
+# python@3.11 is pinned for the Piper TTS venv (onnxruntime/piper-phonemize
+# don't ship wheels for python@3.14 yet — see install.sh's Piper section)
+brew "python@3.11"
 
 # ── Projeto / diversos ────────────────────────────────────────────────────────
 brew "awscli"
@@ -55,6 +58,7 @@ brew "chafa"
 brew "viu"
 brew "figlet"
 brew "toilet"
+brew "mpv"
 
 # ── Casks (apps + fonte) ──────────────────────────────────────────────────────
 cask "ghostty"

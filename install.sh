@@ -26,7 +26,16 @@ fi
 if [[ "$OS" == "Linux" ]]; then
     echo "==> apt packages..."
     sudo apt-get update -q
-    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential 2>/dev/null || true
+    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential mpv 2>/dev/null || true
+
+    # Python 3.11 (Piper TTS venv — onnxruntime/piper-phonemize wheels lag
+    # newer pythons, so this is kept separate from the line above: if the
+    # package name doesn't exist on this distro, it must not take the rest
+    # of the apt install down with it)
+    if ! command -v python3.11 &>/dev/null; then
+        echo "==> python3.11..."
+        sudo apt-get install -y python3.11 python3.11-venv 2>/dev/null || echo "!! python3.11 unavailable, Piper voice setup will be skipped"
+    fi
 
     # fd symlink
     if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
@@ -113,6 +122,35 @@ if ! command -v rustup &>/dev/null; then
 fi
 export PATH="$HOME/.cargo/bin:$PATH"
 
+# ── Piper TTS (voz local para /say e o `R` do copy-mode do tmux) ─────────────
+PIPER_HOME="$HOME/.local/share/piper"
+if [[ ! -x "$PIPER_HOME/venv/bin/piper" ]]; then
+    echo "==> Piper TTS..."
+    PY311="$(command -v python3.11 || true)"
+    if [[ -n "$PY311" ]]; then
+        mkdir -p "$PIPER_HOME/voices"
+        "$PY311" -m venv "$PIPER_HOME/venv"
+        "$PIPER_HOME/venv/bin/pip" install --quiet --upgrade pip
+        "$PIPER_HOME/venv/bin/pip" install --quiet piper-tts \
+            || echo "!! piper-tts install failed — /say and tmux R won't have voice"
+    else
+        echo "!! python3.11 not found — skipping Piper (install it manually later for /say voice)"
+    fi
+fi
+
+if [[ -x "$PIPER_HOME/venv/bin/piper" ]]; then
+    echo "==> Piper voice models..."
+    VOICES_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main"
+    fetch_voice() {
+        local url="$1" dest="$2"
+        [[ -f "$dest" ]] || curl -fsSL -o "$dest" "$url"
+    }
+    fetch_voice "$VOICES_BASE/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx" "$PIPER_HOME/voices/pt_BR-faber-medium.onnx"
+    fetch_voice "$VOICES_BASE/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json" "$PIPER_HOME/voices/pt_BR-faber-medium.onnx.json"
+    fetch_voice "$VOICES_BASE/en/en_US/ryan/high/en_US-ryan-high.onnx" "$PIPER_HOME/voices/en_US-ryan-high.onnx"
+    fetch_voice "$VOICES_BASE/en/en_US/ryan/high/en_US-ryan-high.onnx.json" "$PIPER_HOME/voices/en_US-ryan-high.onnx.json"
+fi
+
 # ── Symlinks ──────────────────────────────────────────────────────────────────
 mkdir -p ~/.vim/undodir ~/.config ~/.local/bin
 
@@ -149,9 +187,32 @@ for script in ~/.dotfiles/bin/*; do
 done
 echo "==> scripts linked"
 
+# claude code (global config: hooks, custom commands, settings)
+mkdir -p ~/.claude
+ln -sf ~/.dotfiles/claude/settings.json ~/.claude/settings.json
+ln -sfn ~/.dotfiles/claude/commands ~/.claude/commands
+ln -sfn ~/.dotfiles/claude/hooks ~/.claude/hooks
+echo "==> claude code config linked"
+
 # ── Bootstrap nvim plugins ────────────────────────────────────────────────────
 echo "==> nvim plugins..."
 nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
+
+# ── tmux plugins (TPM) ────────────────────────────────────────────────────────
+if [[ ! -d ~/.tmux/plugins/tpm ]]; then
+    echo "==> TPM..."
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm 2>/dev/null || true
+fi
+if [[ -x ~/.tmux/plugins/tpm/bin/install_plugins ]]; then
+    ~/.tmux/plugins/tpm/bin/install_plugins 2>/dev/null || true
+fi
+# tmux-which-key's config.yaml lives inside the plugin's own repo, so a fresh
+# TPM clone would come back with the plugin's defaults — overwrite it with
+# our tracked customization (the +Fala menu, sessionizer, cheatsheet, etc).
+if [[ -f ~/.tmux/plugins/tmux-which-key/config.yaml ]]; then
+    cp ~/.dotfiles/tmux/which-key-config.yaml ~/.tmux/plugins/tmux-which-key/config.yaml
+    echo "==> which-key config applied"
+fi
 
 echo ""
 echo "  Done! Run: source ~/.zshrc"
