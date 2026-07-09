@@ -161,35 +161,49 @@ fi
 # ── Symlinks ──────────────────────────────────────────────────────────────────
 mkdir -p ~/.vim/undodir ~/.config ~/.local/bin
 
+# Symlinks $2 (a dotfiles path) onto $1 (a $HOME path). If $1 already exists
+# as a REAL file/dir (not one of our own symlinks), it's moved to
+# "$1.pre-dotfiles" first — uninstall.sh looks for that exact suffix to put
+# it back. Safe to re-run: once $1 is our symlink, nothing gets backed up
+# again.
+link_with_backup() {
+    local target="$1" source="$2"
+    if [[ -e "$target" && ! -L "$target" ]]; then
+        mv "$target" "$target.pre-dotfiles"
+    fi
+    if [[ -d "$source" ]]; then
+        ln -sfn "$source" "$target"
+    else
+        ln -sf "$source" "$target"
+    fi
+}
+
 # nvim
-if [[ -d ~/.config/nvim && ! -L ~/.config/nvim ]]; then
-    mv ~/.config/nvim ~/.config/nvim.bak.$(date +%s)
-fi
-ln -sfn ~/.dotfiles/nvim/.config/nvim ~/.config/nvim
+link_with_backup ~/.config/nvim ~/.dotfiles/nvim/.config/nvim
 echo "==> nvim linked"
 
 # tmux
-ln -sf ~/.dotfiles/tmux/.tmux.conf ~/.tmux.conf
+link_with_backup ~/.tmux.conf ~/.dotfiles/tmux/.tmux.conf
 echo "==> tmux linked"
 
-# zshrc (substitui o existente pelo do dotfiles)
-ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
+# zshrc
+link_with_backup ~/.zshrc ~/.dotfiles/zsh/.zshrc
 echo "==> zshrc linked"
 
 # gitconfig
-ln -sf ~/.dotfiles/git/.gitconfig ~/.gitconfig
+link_with_backup ~/.gitconfig ~/.dotfiles/git/.gitconfig
 echo "==> gitconfig linked"
 
 # ghostty (macOS)
 if [[ "$OS" == "Darwin" ]]; then
     mkdir -p ~/.config/ghostty
-    ln -sf ~/.dotfiles/ghostty/.config/ghostty/config ~/.config/ghostty/config
+    link_with_backup ~/.config/ghostty/config ~/.dotfiles/ghostty/.config/ghostty/config
     echo "==> ghostty linked"
 fi
 
 # skhd (macOS only — global hotkeys for screenshot-to-path / file-to-path)
 if [[ "$OS" == "Darwin" ]]; then
-    ln -sf ~/.dotfiles/skhd/.skhdrc ~/.skhdrc
+    link_with_backup ~/.skhdrc ~/.dotfiles/skhd/.skhdrc
     echo "==> skhd linked"
     if command -v skhd &>/dev/null; then
         brew services restart skhd 2>/dev/null || true
@@ -201,15 +215,15 @@ fi
 # scripts
 for script in ~/.dotfiles/bin/*; do
     chmod +x "$script"
-    ln -sf "$script" ~/.local/bin/$(basename "$script")
+    link_with_backup "$HOME/.local/bin/$(basename "$script")" "$script"
 done
 echo "==> scripts linked"
 
 # claude code (global config: hooks, custom commands, settings)
 mkdir -p ~/.claude
-ln -sf ~/.dotfiles/claude/settings.json ~/.claude/settings.json
-ln -sfn ~/.dotfiles/claude/commands ~/.claude/commands
-ln -sfn ~/.dotfiles/claude/hooks ~/.claude/hooks
+link_with_backup ~/.claude/settings.json ~/.dotfiles/claude/settings.json
+link_with_backup ~/.claude/commands ~/.dotfiles/claude/commands
+link_with_backup ~/.claude/hooks ~/.dotfiles/claude/hooks
 echo "==> claude code config linked"
 
 # ── Bootstrap nvim plugins ────────────────────────────────────────────────────
