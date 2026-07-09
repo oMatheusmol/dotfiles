@@ -115,6 +115,13 @@ if [[ ! -d "$HOME/.nvm" ]]; then
     nvm install --lts
 fi
 
+# ── Claude Code CLI ───────────────────────────────────────────────────────────
+if ! command -v claude &>/dev/null; then
+    echo "==> Claude Code CLI..."
+    curl -fsSL https://claude.ai/install.sh | bash
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
 # ── Rust ──────────────────────────────────────────────────────────────────────
 if ! command -v rustup &>/dev/null; then
     echo "==> Rust..."
