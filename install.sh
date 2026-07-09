@@ -246,6 +246,18 @@ fi
 
 tree_sitter_works || echo "!! tree-sitter-cli unavailable — nvim-treesitter parser installs will fail"
 
+# ── TypeScript (global) ───────────────────────────────────────────────────────
+# Mason bundles `typescript` alongside typescript-language-server for ts_ls,
+# but on a fresh machine that install runs async on first nvim launch — if
+# you open a .ts file before it finishes (or it falls back before finding the
+# bundled copy), ts_ls errors with "Could not find a valid TypeScript
+# installation". A global install is a fallback tsserver can always find,
+# independent of Mason's timing or any given project's own node_modules.
+if ! command -v tsc &>/dev/null; then
+    echo "==> typescript (global)..."
+    npm install -g typescript 2>/dev/null || true
+fi
+
 # ── Piper TTS (voz local para /say e o `R` do copy-mode do tmux) ─────────────
 PIPER_HOME="$HOME/.local/share/piper"
 if [[ ! -x "$PIPER_HOME/venv/bin/piper" ]]; then
