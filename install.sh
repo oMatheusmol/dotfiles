@@ -26,7 +26,7 @@ fi
 if [[ "$OS" == "Linux" ]]; then
     echo "==> apt packages..."
     sudo apt-get update -q
-    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential mpv 2>/dev/null || true
+    sudo apt-get install -y curl git zsh unzip ripgrep fd-find build-essential mpv software-properties-common 2>/dev/null || true
 
     # Python 3.11 (Piper TTS venv — onnxruntime/piper-phonemize wheels lag
     # newer pythons, so this is kept separate from the line above: if the
@@ -43,9 +43,19 @@ if [[ "$OS" == "Linux" ]]; then
         ln -sf "$(which fdfind)" ~/.local/bin/fd
     fi
 
-    # neovim
+    # neovim — prefer the PPA on Ubuntu: it's built against that release's own
+    # glibc, avoiding "GLIBC_x.xx not found" errors from the generic prebuilt
+    # binary on WSL/older Ubuntu releases. Falls back to the raw tarball
+    # (e.g. non-Ubuntu Debian derivatives) only if the PPA route didn't work.
     if ! command -v nvim &>/dev/null; then
         echo "==> neovim..."
+        if grep -qi ubuntu /etc/os-release 2>/dev/null; then
+            sudo add-apt-repository -y ppa:neovim-ppa/unstable 2>/dev/null || true
+            sudo apt-get update -q
+            sudo apt-get install -y neovim 2>/dev/null || true
+        fi
+    fi
+    if ! command -v nvim &>/dev/null; then
         curl -fsSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz -o /tmp/nvim.tar.gz
         tar -C ~/.local -xzf /tmp/nvim.tar.gz
         rm /tmp/nvim.tar.gz
